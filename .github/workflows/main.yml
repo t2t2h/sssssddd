@@ -1,0 +1,39 @@
+name: Build AflatoonMenu dylib
+
+on:
+  push:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install tools
+        run: brew install ldid make
+
+      - name: Install Theos
+        run: |
+          git clone --recursive https://github.com/theos/theos.git "$HOME/theos"
+          echo "THEOS=$HOME/theos" >> $GITHUB_ENV
+
+      - name: Build
+        run: |
+          export PATH="$(brew --prefix make)/libexec/gnubin:$PATH"
+          make FINALPACKAGE=1
+          mkdir -p out
+          find .theos -name "*.dylib" -exec cp {} out/ \;
+          ls -la out
+
+      - name: Check no Substrate dependency
+        run: |
+          otool -L out/*.dylib
+          if otool -L out/*.dylib | grep -qi substrate; then
+            echo "ERROR: dylib links Substrate"; exit 1
+          fi
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: AflatoonMenu-dylib
+          path: out/*.dylib
